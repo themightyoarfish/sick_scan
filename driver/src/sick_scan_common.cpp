@@ -798,6 +798,7 @@ namespace sick_scan
   */
   void SickScanCommon::setReadTimeOutInMs(int timeOutInMs)
   {
+    ROS_INFO("TIMEOUT %dms",timeOutInMs);
     readTimeOutInMs = timeOutInMs;
   }
 
@@ -1315,8 +1316,8 @@ namespace sick_scan
     bool useBinaryCmdNow = false;
     int maxCmdLoop = 2; // try binary and ascii during startup
 
-    const int shortTimeOutInMs = 5000; // during startup phase to check binary or ascii
-    const int defaultTimeOutInMs = 120000; // standard time out 120 sec.
+    const int shortTimeOutInMs = 1000; // during startup phase to check binary or ascii
+    const int defaultTimeOutInMs = 12000; // standard time out 120 sec.
 
     setReadTimeOutInMs(shortTimeOutInMs);
 
@@ -2113,7 +2114,7 @@ namespace sick_scan
         ROS_INFO("Reading safety fields");
         SickScanFieldMonSingleton *fieldMon = SickScanFieldMonSingleton::getInstance();
         int maxFieldnum = this->parser_->getCurrentParamPtr()->getMaxEvalFields();
-        for(int fieldnum=0;fieldnum<maxFieldnum;fieldnum++) 
+        for(int fieldnum=0;fieldnum<maxFieldnum;fieldnum++)
         {
           char requestFieldcfg[MAX_STR_LEN];
           const char *pcCmdMask = sopasCmdMaskVec[CMD_GET_SAFTY_FIELD_CFG].c_str();
@@ -2464,7 +2465,7 @@ namespace sick_scan
 
       if (parser_->getCurrentParamPtr()->getUseEvalFields() == USE_EVAL_FIELD_TIM7XX_LOGIC || parser_->getCurrentParamPtr()->getUseEvalFields() == USE_EVAL_FIELD_LMS5XX_LOGIC)
       {
-        
+
         // Activate LFErec, LIDoutputstate and LIDinputstate messages
         ros::NodeHandle tmpParam("~");
         bool activate_lferec = true, activate_lidoutputstate = true, activate_lidinputstate = true;
@@ -2966,7 +2967,7 @@ namespace sick_scan
           // int fieldset = (receiveBuffer[32] & 0xFF);
           // fieldMon->setActiveFieldset(fieldset);
           fieldMon->parseBinaryLIDinputstateMsg(receiveBuffer, actual_length);
-          ROS_DEBUG_STREAM("SickScanCommon: received " << actual_length << " byte LIDinputstate " << DataDumper::binDataToAsciiString(&receiveBuffer[0], actual_length) 
+          ROS_DEBUG_STREAM("SickScanCommon: received " << actual_length << " byte LIDinputstate " << DataDumper::binDataToAsciiString(&receiveBuffer[0], actual_length)
             << ", active fieldset = " << fieldMon->getActiveFieldset());
         }
         return errorCode; // return success to continue looping
@@ -4674,6 +4675,3 @@ namespace sick_scan
   // SopasProtocol m_protocolId;
 
 } /* namespace sick_scan */
-
-
-

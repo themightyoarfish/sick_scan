@@ -375,6 +375,7 @@ int mainGenericLaser(int argc, char **argv, std::string nodeName)
         {
           ros::spinOnce();
           result = s->loopOnce();
+          ROS_INFO("wat");
         }
         else
         {
@@ -389,15 +390,18 @@ int mainGenericLaser(int argc, char **argv, std::string nodeName)
   }
   if(services)
   {
+      ROS_INFO("wat1");
     delete services;
     services = 0;
   }
   if (s != NULL)
   {
+      ROS_INFO("wat2");
     delete s; // close connnect
   }
   if (parser != NULL)
   {
+      ROS_INFO("wat3");
     delete parser; // close parser
   }
   return result;
