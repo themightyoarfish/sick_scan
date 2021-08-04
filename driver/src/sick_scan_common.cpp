@@ -1317,7 +1317,7 @@ namespace sick_scan
     int maxCmdLoop = 2; // try binary and ascii during startup
 
     const int shortTimeOutInMs = 1000; // during startup phase to check binary or ascii
-    const int defaultTimeOutInMs = 12000; // standard time out 120 sec.
+    const int defaultTimeOutInMs = 10000; // reduced timeout from upstream. 120s is uselessly long
 
     setReadTimeOutInMs(shortTimeOutInMs);
 
