@@ -644,11 +644,11 @@ namespace sick_scan
         break;
       }
       boost::this_thread::sleep(boost::posix_time::milliseconds(waitingTimeInMs));
-    }
-    if (i >= timeout_ms)
-    {
-      ROS_ERROR("no answer received after %zu ms. Maybe sopas mode is wrong.\n", timeout_ms);
-      return (ExitError);
+}
+if (i >= timeout_ms)
+{
+  ROS_ERROR("no answer received after %zu ms. Maybe sopas mode is wrong.\n", timeout_ms);
+  return (ExitError);
     }
     boost::condition_variable cond_;
     DatagramWithTimeStamp datagramWithTimeStamp = this->recvQueue.pop();

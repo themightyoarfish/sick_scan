@@ -8,6 +8,7 @@
 #include "sick_scan/tcp/errorhandler.hpp"
 #include "sick_scan/tcp/toolbox.hpp"
 #include <stdio.h>      // for sprintf()
+#include <fcntl.h>
 
 #include <sys/socket.h> // for socket(), bind(), and connect()
 #include <arpa/inet.h>  // for sockaddr_in and inet_ntoa()
@@ -23,9 +24,9 @@ Tcp::Tcp()
 {
 	m_beVerbose = false;
 	m_connectionSocket = -1;
-	
+
 	m_readThread.m_threadShouldRun = false;
-	
+
 	m_longStringWarningPrinted = false;
 	m_disconnectFunction = NULL;
 	m_disconnectFunctionObjPtr = NULL;
@@ -58,7 +59,7 @@ bool Tcp::write(UINT8* buffer, UINT32 numberOfBytes)
 #else
 	INT32* socketPtr = &m_connectionSocket;
 	bytesSent = ::send(*socketPtr, buffer, numberOfBytes, 0);
-#endif	
+#endif
 	// Sende Daten an das Socket
 	if (bytesSent != (INT32)numberOfBytes)
 	{
@@ -119,11 +120,11 @@ void Tcp::setReadCallbackFunction(Tcp::ReadFunction readFunction, void* obj)
 bool Tcp::open(UINT32 ipAddress, UINT16 port,  bool enableVerboseDebugOutput)
 {
 	std::string ipAdrStr;
-	
+
 	ipAdrStr = ipAdrToString(ipAddress);
-				
+
 	bool result = open(ipAdrStr, port, enableVerboseDebugOutput);
-	
+
 	return result;
 }
 
@@ -140,15 +141,22 @@ bool Tcp::open(std::string ipAddress, UINT16 port, bool enableVerboseDebugOutput
 
 //	printInfoMessage("Tcp::open: Setting up input buffer with size=" + convertValueToString(requiredInputBufferSize) + " bytes.", m_beVerbose);
 //	m_inBuffer.init(requiredInputBufferSize, m_beVerbose);
-	
+
 	printInfoMessage("Tcp::open: Opening connection.", m_beVerbose);
-	
+
 	// Socket erzeugen
 	m_connectionSocket = -1;	// Keine Verbindung
-	{
-		ScopedLock lock(&m_socketMutex);		// Mutex setzen
-		m_connectionSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-	}
+    struct timeval tv;
+    tv.tv_sec = 3;
+    tv.tv_usec=0;
+
+    // Socket erzeugen
+    m_connectionSocket = -1;        // Keine Verbindung
+    {
+            ScopedLock lock(&m_socketMutex);                // Mutex setzen
+            m_connectionSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+            fcntl(m_connectionSocket, F_SETFL, O_NONBLOCK);
+    }
 	if (m_connectionSocket  < 0)
 	{
         printError("Tcp::open: socket() failed, aborting.");
@@ -157,7 +165,7 @@ bool Tcp::open(std::string ipAddress, UINT16 port, bool enableVerboseDebugOutput
 
 	// Socket ist da. Nun die Verbindung oeffnen.
 	printInfoMessage("Tcp::open: Connecting. Target address is " + ipAddress + ":" + toString(port) + ".", m_beVerbose);
-	
+
 	struct sockaddr_in addr;
 	struct hostent *server;
 	server = gethostbyname(ipAddress.c_str());
@@ -170,6 +178,11 @@ bool Tcp::open(std::string ipAddress, UINT16 port, bool enableVerboseDebugOutput
 #endif
 	addr.sin_port = htons(port);				// Host-2-Network byte order
 	result = connect(m_connectionSocket, (sockaddr*)(&addr), sizeof(addr));
+    fd_set fdset;
+    FD_ZERO(&fdset);
+    FD_SET(m_connectionSocket, &fdset);
+    connect(m_connectionSocket, (sockaddr*)(&addr), sizeof(addr));
+    result = select(m_connectionSocket+1, NULL, &fdset, NULL, &tv) > 0 ? 1 : -1;
 	if (result < 0)
 	{
 		// Verbindungsversuch ist fehlgeschlagen
@@ -182,7 +195,7 @@ bool Tcp::open(std::string ipAddress, UINT16 port, bool enableVerboseDebugOutput
 
 	// Empfangsthread starten
 	m_readThread.run(this);
-	
+
 	printInfoMessage("Tcp::open: Done, leaving now.", m_beVerbose);
 
 	return true;
@@ -239,7 +252,7 @@ INT32 Tcp::readInputData()
 		printError("Tcp::readInputData: Connection is not open, aborting!");
 		return -1;
 	}
-		
+
 	// Read some data, if any
 #ifdef _MSC_VER
 	recvMsgSize = recv(m_connectionSocket, (char *)inBuffer, max_length, 0);
@@ -280,7 +293,7 @@ INT32 Tcp::readInputData()
 	{
 		// Erfolg
 		printInfoMessage("Tcp::readInputData: Read " + toString(recvMsgSize) + " bytes from the connection.", m_beVerbose);
-		
+
 		// Falls eine Callback-Funktion definiert ist, rufe sie auf mit den
 		// empfangenen Daten.
 		if (m_readFunction != NULL)
@@ -303,19 +316,19 @@ INT32 Tcp::readInputData()
 	{
 		// Verbindungsabbruch
 		printInfoMessage("Tcp::readInputData: Read 0 bytes - connection is lost!", true);
-		
+
 		// Informieren?
 		if (m_disconnectFunction != NULL)
 		{
 			m_disconnectFunction(m_disconnectFunctionObjPtr);
 		}
-		
+
 		// Mutex setzen
 		ScopedLock lock(&m_socketMutex);
 
 		m_connectionSocket = -1;	// Keine Verbindung mehr
 	}
-	
+
 	return recvMsgSize;
 }
 
@@ -358,7 +371,7 @@ void Tcp::close()
 void Tcp::stopReadThread()
 {
 	printInfoMessage("Tcp::stopReadThread: Stopping thread.", m_beVerbose);
-	
+
 	m_readThread.m_threadShouldRun = false;
 	m_readThread.join();
 
@@ -389,7 +402,7 @@ UINT32 Tcp::getNumReadableBytes()
 UINT32 Tcp::read(UINT8* buffer, UINT32 bufferLen)
 {
 	UINT32 bytesRead = 0;
-	
+
 	// Lesen
 	while ((getNumReadableBytes() > 0) && (bufferLen > bytesRead))
 	{
@@ -397,7 +410,7 @@ UINT32 Tcp::read(UINT8* buffer, UINT32 bufferLen)
 		m_rxBuffer.pop_front();
 		bytesRead += 1;	// m_inBuffer.read(buffer, bufferLen);
 	}
-	
+
 	return bytesRead;
 }
 
@@ -454,5 +467,3 @@ std::string Tcp::readString(UINT8 delimiter)
 
 	return outString;
 }
-
-
