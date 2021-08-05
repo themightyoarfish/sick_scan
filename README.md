@@ -1,3 +1,30 @@
+# About this fork
+
+The original source code has two issues for our use case
+
+1. Timeouts on opening and reading from TCP sockets is unreasonably large, so it would
+   take many minutes to recover from a network outage between host and scanner.
+2. The node state machine loops over the `scanner_finalize` state when the connection is
+   lost, and never exits the loop. To recover after power cycle, the scanner must be initialized
+   via ColA again. This did not happen.
+
+The changes can be summarized thusly:
+
+1. Reduce timeouts on sockets to fail fast
+2. Make the `sick_generic_caller` node exit when it reaches the `scanner_finalize`
+   state, so it can be restarted (automatically by ROS) and thus retry the
+   initialization sequence.
+
+Despite this, it's not instantaneous. The scanners need a few seconds to start and the
+node will try and fail a few times before initialization finally completes.
+
+Recovery is very fast after loss of network, but can take up to a few minutes after
+power loss.
+
+
+---
+
+
 # sick_scan
 
 This stack provides a ROS driver for the SICK lidar and radar sensors mentioned in the following list.
@@ -242,7 +269,7 @@ Overview of the tools:
 
 * Search for scanner in the network:
   Use the Python3 tool "sick_generic_device_finder.py" in the tools/sick_generic_device_finder directory.
-  The tools will output the IP addresses of the connected scanners and some more information about the scanner.  
+  The tools will output the IP addresses of the connected scanners and some more information about the scanner.
   Call it with python3, i.e.
   ``
   python3 sick_generic_device_finder.py
@@ -271,7 +298,7 @@ Overview of the tools:
    * TCP connection error
    * Error-Message 0x0d
 7. Amplitude values in rviz: If you see only one color in rviz try the following:
-   Set the min/max-Range of intensity display in the range [0...200] and switch on the intensity flag in the launch file  
+   Set the min/max-Range of intensity display in the range [0...200] and switch on the intensity flag in the launch file
 8. In case of network problems check your own ip address and the ip address of your laser scanner (by using SOPAS ET).
    * List of own IP-addresses: ifconfig|grep "inet addr"
    * Try to ping scanner ip address (used in launch file)
@@ -289,7 +316,7 @@ Overview of the tools:
  3. Sopas file of your scanner configuration.
   The instructions at http://sickusablog.com/create-and-download-a-sopas-file/ show how to create the Sopas file.
 * In case of application support please use [https://supportportal.sick.com ](https://supportportal.sick.com).
-* Issue Handling: Issues, for which no reply was received from the questioner for more than 7 days,						
+* Issue Handling: Issues, for which no reply was received from the questioner for more than 7 days,
   are closed by us because we assume that the user has solved the problem.
 
 
